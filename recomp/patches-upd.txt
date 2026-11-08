@@ -184,3 +184,12 @@ site uifit main a3ce48 1e282000 @page:x17 bd40763f 1e3f2000
 set viewsize XCX_VIEW_SIZE 0
 site viewsize main 972f84 b941a2a9 b941a2a9 511e012b 5ac0116b 53057d6b b943ca6c 4b09018c 1b0b7d8c 0b0c0129
 site viewsize main 972f8c 910692aa 910692aa b940014b 5110e16b 5ac0116b 53057d6b 910f326c cb0a018c 9b0b7d8c 8b0c014a
+# The HUD's text windows (#116: the yellow tips at the lower left, among others): opening one (main+0x5d870c,
+# main+0x5d8ebc, main+0x5d966c) stores its data row's DispTime column, a count of 30 fps frames, at +0x2a of the window,
+# and each update (main+0x5d88c8, main+0x5d9078, main+0x5d9828) takes 1 off it and closes the window at 0. Above 30 fps
+# the window closed early, less than a second at 150 fps. The count is divided by the patch page's +0x4c (30 / frame
+# rate) where it is stored, so it lasts DispTime / 30 s at any frame rate. x9, w0 and s0-s1 are free: x0 is reloaded and
+# a call follows at each.
+site xcx60 main 5d87a8 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
+site xcx60 main 5d8f58 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
+site xcx60 main 5d9708 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
