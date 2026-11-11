@@ -208,3 +208,9 @@ site xcx60 main 2aae10 1e2e1000 @page:x9 bd404d20
 site xcx60 main 2dcb14 2d478e62 @page:x9 2d478e62 bd404d24 1e240842
 site xcx60 main 2e5d58 1e3e1001 @page:x9 bd404d21 1e214021
 site xcx60 main 304dd0 1e3e1001 @page:x9 bd404d21 1e214021
+# Event actors also use the step they are handed as their animations' play speed: main+0x2e9d0 sets each animation
+# slot's rate to its base rate times that value (through main+0x3f620). The animations already advance by the real
+# frame time, so with the step above at 30 / frame rate they played at half speed at 60 and a quarter at 120; in the
+# first NLA scene the camera then lost the Skell it rides with in the close-up (#106). main+0x2e9d0 now divides
+# the speed by the patch page's +0x4c, so only a speed the event sets itself remains. x9 is free at its entry.
+site xcx60 main 2e9ec 1e204008 @page:x9 bd404d28 1e281808
