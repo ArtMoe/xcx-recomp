@@ -38,6 +38,29 @@ release that changes nothing game-derived skips the rebuild.
 Given another update file than the recorded one (1.2.1, then 1.4.3), the installer extracts and builds again from it and
 keeps `profile/`. Saves carry over both ways: 1.4.3 converts a 1.2.1 save on load, and 1.2.1 loads the saves 1.4.3 wrote.
 
+## Mods
+
+**Mods** (on the first screen and the finish screen) opens the mod manager for the install folder in the form
+(`installer/gui_mods.py` over `installer/mods.py`; `python -m installer.mods --dest DIR ...` is the same from a
+console). It lists the mod library, [jmars125/xcx-recomp-mods](https://github.com/jmars125/xcx-recomp-mods), next to
+what is in `mods/`:
+
+- Lua mods are hosted in the library; each file is checked against the size and SHA-256 in its `index.json`. They
+  are on when listed in `mods/enabled.txt` and apply when the game starts.
+- Game-file mods are listed by link: the manager downloads the zip from the author's page (GameBanana), checks its
+  size and SHA-256, and unpacks its `romfs/` (or `romfs/mod/`) folder into `mods/<id>/romfs/`; `exefs/` is left out.
+  **Add zip...** does the same for a zip the player downloaded. They are on when listed in `mods/romfs-enabled.txt`,
+  which the game reads again twice a second (`runtime/romfs_mods.c`), so they switch while it runs.
+
+Saves are never touched. The game uses a game-file mod's copy the next time it loads the file, so data read at
+start-up (the bdat tables) needs a restart.
+
+The game's F1 menu has the same manager on its **Mods** tab (`runtime/mod_library.c`: WinHTTP downloads on Windows,
+curl on Linux, `runtime/mod_zip.c` unpacks), with the same checks and folder layout. Both write
+`mods/<id>/library.ini` (name, author, version, kind), so each sees the other's installs and updates.
+
+Setup's look (`installer/theme.py`) takes the colours of the F1 menu (`runtime/ui/menu.cpp`, `style_init`).
+
 ## Setup steps
 
 1. **Check** before writing anything: the files open with the keys, the update is 1.2.1 or 1.4.3 (by hash, as

@@ -41,6 +41,7 @@ sys.path.insert(0, str(ROOT / 'recomp'))
 
 import flags  # noqa: E402
 import appendage  # noqa: E402
+import romfs_mods  # noqa: E402
 import jumptables  # noqa: E402
 import patches  # noqa: E402
 import regs  # noqa: E402
@@ -213,6 +214,7 @@ class Emitter:
         self.mod_menu_hook = mod_menu_hook and mod.name == "main"
         self.mod = mod
         self.appendage = appendage.verified(mod)
+        self.romfs_mods = romfs_mods.verified(mod)
         self.starts = starts
         self.patched = patched or {}   # {address: (set index, [replacement words])} (recomp/patches.py)
         self.spins = spins or {}       # {spin wait back-edge: its head} (recomp/patches.py `spin`)
@@ -443,6 +445,8 @@ class Emitter:
                 emit(i, patch(i, ins, a))
             elif k == 'op':
                 emit(i, '    ' + op(i, ins.code))
+                if self.romfs_mods and (hook := romfs_mods.after(mod, a)):
+                    emit(i, '    ' + hook)   # read and written through the register planner, like the op
             elif k == 'trap':
                 emit(i, f'    {spill}{fx(i, ins.code)}')
             elif k in ('b', 'bcond'):
@@ -509,6 +513,8 @@ def chunk_text(name, number, emitter, fns):
     if emitter.uses_patches:
         protos += 'extern uint8_t rt_patch_on[];\n'
     hook_header = '#include "appendage_glyph.h"\n' if any('appendage_glyph_' in s for s in body) else ''
+    if any('romfs_mod_declines' in s for s in body):
+        hook_header += '#include "romfs_mods.h"\n'
     return (header(f'{name} chunk {number:04d}') + '#include "cpu.h"\n#include "simd.h"\n' + hook_header + '\n' + protos + '\n'
             + '\n\n'.join(body) + '\n')
 
