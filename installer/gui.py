@@ -22,6 +22,8 @@ except ImportError:
     ImageGrab = None
 
 from . import ini
+from .events import GAME_EXE
+from .gui_mods import ModsWindow
 from . import layout as layouts
 from .guilogic import (DONE, FAILED, PENDING, RUNNING, SKIPPED, UI_LANGUAGES, Catalog, Form, Model, Process,
                        amount, default_game_language, describe_event, parse_line, windows_ui_language)
@@ -179,6 +181,7 @@ class App:
         bar.pack(side='bottom', fill='x', pady=(12, 0))
         self.start_button = self.button(bar, 'ui.start', self.start)
         self.start_button.pack(side='right')
+        self.button(bar, 'ui.mods', self.open_mods).pack(side='left')
         self.form_intro = self.label(f, 'ui.intro', wraplength=620, justify='left')
         self.form_intro.pack(anchor='w', pady=(0, 8))
         self.notice(f).pack(fill='x', pady=(0, 10))
@@ -256,6 +259,8 @@ class App:
         self.open_button.pack(side='right', padx=(0, 8))
         self.back_button = self.button(bar, 'ui.back', lambda: self.show('form'))
         self.back_button.pack(side='left')
+        self.finish_mods = self.button(bar, 'ui.mods', self.open_mods)
+        self.finish_mods.pack(side='left', padx=(8, 0))
         self.finish_title = ttk.Label(f, style='Title.TLabel', wraplength=620, justify='left')
         self.finish_title.pack(anchor='w')
         self.finish_text = ttk.Label(f, wraplength=620, justify='left')
@@ -485,6 +490,14 @@ class App:
             self.open_button.state(['!disabled'])
         else:
             self.open_button.state(['disabled' if not Path(m.dest or '.').is_dir() else '!disabled'])
+
+    def open_mods(self):
+        """The Mods window (installer/gui_mods.py) for the install folder in the form, which must hold the game."""
+        dest = self.vars['dest'].get().strip()
+        if not dest or not (Path(dest) / GAME_EXE).is_file():
+            messagebox.showinfo(self.cat('ui.title'), self.cat('ui.mods_need_install'), parent=self.root)
+            return
+        ModsWindow(self.root, self.cat, dest, self.ui_font, index=self.run_args.get('mods_index'))
 
     def open_folder(self):
         dest = self.model.dest
