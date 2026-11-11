@@ -214,3 +214,19 @@ site xcx60 main 304dd0 1e3e1001 @page:x9 bd404d21 1e214021
 # first NLA scene the camera then lost the Skell it rides with in the close-up (#106). main+0x2e9d0 now divides
 # the speed by the patch page's +0x4c, so only a speed the event sets itself remains. x9 is free at its entry.
 site xcx60 main 2e9ec 1e204008 @page:x9 bd404d28 1e281808
+
+# The HUD's text windows (#116: the yellow tips at the lower left, among others): opening one (main+0x5d870c,
+# main+0x5d8ebc, main+0x5d966c) stores its data row's DispTime column, a count of 30 fps frames, at +0x2a of the window,
+# and each update (main+0x5d88c8, main+0x5d9078, main+0x5d9828) takes 1 off it and closes the window at 0. Above 30 fps
+# the window closed early, less than a second at 150 fps. The count is divided by the patch page's +0x4c (30 / frame
+# rate) where it is stored, so it lasts DispTime / 30 s at any frame rate. x9, w0 and s0-s1 are free: x0 is reloaded and
+# a call follows at each.
+site xcx60 main 5d87a8 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
+site xcx60 main 5d8f58 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
+site xcx60 main 5d9708 79005680 @page:x9 1e230000 bd404d21 1e211800 1e250000 79005680
+# The field's enemy talk box (#116: "Tyrant Info" and the other lines enemies call out, at the lower left): the talk
+# manager's update (main+0x7fc330) opens the box, sets its hold to 300 frames at +0x80 (main+0x7fc8d0) and takes 1 off it
+# each update (main+0x7fc6dc), closing the box when it runs out. That is 10 s at the console's 30 fps but 5 s at 60 and
+# 2.5 s at 120. The 300 is divided by the patch page's +0x4c (30 / frame rate) instead, so the box holds 10 s at any
+# frame rate. x9 is set here anyway and s0-s1 are free: calls come just before and the function returns after.
+site xcx60 main 7fc8d0 52802589 @page:x9 bd404d21 52802589 1e230120 1e211800 1e250009
