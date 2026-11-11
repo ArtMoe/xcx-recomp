@@ -55,6 +55,16 @@ class ModsTest(unittest.TestCase):
             self.assertEqual(e.exception.id, error)
             self.assertFalse((self.dest / 'mods' / 'bad').exists())
 
+    def test_info_for_the_game(self):
+        # <id>/library.ini, shared with the game's F1 menu (runtime/mod_library.c)
+        mods.add_zip(self.dest, self.zip(['romfs/x.bin']), 'named', name='Potato\nTatsu')
+        info = mods.read_info(self.dest / 'mods' / 'named')
+        self.assertEqual((info['name'], info['kind'], info['source']), ('Potato Tatsu', 'romfs', 'zip'))
+        self.assertEqual(self.files('named'), ['x.bin'])
+        # a version the game wrote wins over the manager's record
+        (self.dest / 'mods' / 'named' / 'library.ini').write_text('name = Tatsu\nversion = 2\nkind = romfs\n')
+        self.assertEqual([(m['name'], m['version']) for m in mods.installed(self.dest)], [('Tatsu', '2')])
+
     def test_ids_from_file_names(self):
         path = Path(self.tmp.name) / 'Tatsu Potato v1.zip'
         make_zip(path, ['romfs/x.bin'])

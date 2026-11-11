@@ -123,9 +123,9 @@ def installed(dest):
         kind = kind_of(root, folder.name, record)
         if not kind:
             continue
-        rec = record.get(folder.name, {})
+        rec = dict(record.get(folder.name, {}), **read_info(folder))   # library.ini is the newer word
         out.append({'id': folder.name, 'kind': kind, 'version': rec.get('version', ''),
-                    'name': rec.get('name', folder.name), 'enabled': folder.name in on.get(kind, ())})
+                    'name': rec.get('name') or folder.name, 'enabled': folder.name in on.get(kind, ())})
     return out
 
 
@@ -223,6 +223,29 @@ def unpack_romfs(zip_path, folder):
 
 # ---- operations ----------------------------------------------------------------------------------------------------
 
+def write_info(staged, kind, name, author='', version='', source=''):
+    """<id>/library.ini: name, author, version and kind of an installed mod. The game's F1 menu writes the same file
+    when it installs a mod (runtime/mod_library.c, write_library_ini), so each manager sees the other's installs."""
+    clean = lambda v: ' '.join(str(v).split())[:90]
+    text = ''.join(f'{k} = {clean(v)}\n' for k, v in (('name', name), ('author', author), ('version', version),
+                                                       ('kind', kind), ('source', source)))
+    (staged / 'library.ini').write_text(text, encoding='utf-8', newline='\n')
+
+
+def read_info(folder):
+    """The keys of <id>/library.ini; {} when there is none."""
+    try:
+        text = (folder / 'library.ini').read_text(encoding='utf-8')
+    except (OSError, UnicodeDecodeError):
+        return {}
+    out = {}
+    for line in text.splitlines():
+        key, eq, value = line.partition('=')
+        if eq:
+            out[key.strip()] = value.strip()
+    return out
+
+
 def place(root, mid, staged):
     """Moves a staged mod folder to mods/<id>, in place of an older copy."""
     final = root / mid
@@ -256,6 +279,8 @@ def install(dest, entry, progress=None):
                 download(LIBRARY + entry['path'] + '/' + f['name'], int(f['size']), f['sha256'], staged / f['name'])
                 if progress:
                     progress(i + 1, len(files))
+        write_info(staged, kind, entry.get('name', mid), entry.get('author', ''), entry.get('version', ''),
+                   entry.get('homepage') or 'library')
         place(root, mid, staged)
     record = load_record(root)
     record[mid] = {'kind': kind, 'version': entry.get('version', ''), 'name': entry.get('name', mid),
@@ -282,6 +307,7 @@ def add_zip(dest, zip_path, mid=None, name=None):
         staged = Path(tmp) / mid
         staged.mkdir()
         unpack_romfs(zip_path, staged)
+        write_info(staged, 'romfs', name or zip_path.stem, source='zip')
         place(root, mid, staged)
     record = load_record(root)
     record[mid] = {'kind': 'romfs', 'version': '', 'name': name or zip_path.stem, 'source': 'zip'}

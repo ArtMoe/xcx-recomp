@@ -8,7 +8,7 @@ import webbrowser
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from . import mods
+from . import mods, theme
 
 POLL_MS = 100
 PAD = 14
@@ -24,6 +24,8 @@ class ModsWindow:
         w.title(cat('mods.title'))
         w.transient(parent)
         w.minsize(640, 420)
+        w.configure(background=theme.BG)
+        theme.dark_title_bar(w)
         f = ttk.Frame(w, padding=PAD)
         f.pack(fill='both', expand=True)
         ttk.Label(f, text=cat('mods.intro', dest=str(self.dest)), wraplength=700, justify='left').pack(anchor='w')
@@ -61,6 +63,10 @@ class ModsWindow:
         self.refresh_selection()
         self.load()
         w.after(POLL_MS, self.poll)
+        w.update_idletasks()   # over the Setup window, not in a corner of the screen
+        x = parent.winfo_rootx() + (parent.winfo_width() - w.winfo_reqwidth()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - w.winfo_reqheight()) // 2
+        w.geometry(f'+{max(0, x)}+{max(0, y)}')
 
     # ---- worker --------------------------------------------------------------------------------------------------
 
@@ -95,6 +101,8 @@ class ModsWindow:
                 else:
                     if isinstance(value, list):
                         self.entries = value
+                        if self.status.cget('foreground') != theme.ERROR:
+                            self.set_status('')   # the "reading" or "installing" line is done
                     elif isinstance(value, str):
                         self.set_status(value)
                     self.fill()
@@ -172,7 +180,7 @@ class ModsWindow:
             self.page.pack_forget()
 
     def set_status(self, text, error=False):
-        self.status.configure(text=text, foreground='#c01c28' if error else '')
+        self.status.configure(text=text, foreground=theme.ERROR if error else '')
 
     # ---- buttons -------------------------------------------------------------------------------------------------
 

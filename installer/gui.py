@@ -22,6 +22,7 @@ except ImportError:
     ImageGrab = None
 
 from . import ini
+from . import theme
 from .events import GAME_EXE
 from .gui_mods import ModsWindow
 from . import layout as layouts
@@ -30,7 +31,7 @@ from .guilogic import (DONE, FAILED, PENDING, RUNNING, SKIPPED, UI_LANGUAGES, Ca
 
 POLL_MS = 100
 GLYPH = {PENDING: '\u25cb', RUNNING: '\u25b6', DONE: '\u2714', SKIPPED: '\u2013', FAILED: '\u2716'}
-COLOR = {PENDING: '#808080', RUNNING: '#1a5fb4', DONE: '#26a269', SKIPPED: '#808080', FAILED: '#c01c28'}
+COLOR = {PENDING: theme.DIM, RUNNING: theme.RUN, DONE: theme.OK, SKIPPED: theme.DIM, FAILED: theme.ERROR}
 PAD = 14
 
 
@@ -69,11 +70,12 @@ class App:
             root.iconphoto(True, self.icon)
         root.protocol('WM_DELETE_WINDOW', self.on_close)
         self.ui_font = 'Segoe UI' if os.name == 'nt' else 'DejaVu Sans'
-        style = ttk.Style(root)
-        style.configure('Title.TLabel', font=(self.ui_font, 15, 'bold'))
-        style.configure('Notice.TLabel', background='#fff3cd', foreground='#664d03', padding=8)
-        style.configure('Err.TLabel', foreground='#c01c28')
-        style.configure('Version.TLabel', foreground='#808080')
+        style = theme.apply(root, self.ui_font)
+        style.configure('Title.TLabel', font=(self.ui_font, 15, 'bold'), foreground=theme.CYAN)
+        style.configure('Notice.TLabel', background=theme.NOTICE_BG, foreground=theme.NOTICE_FG, padding=8)
+        style.configure('Err.TLabel', foreground=theme.ERROR)
+        style.configure('Version.TLabel', foreground=theme.DIM)
+        theme.dark_title_bar(root)
 
         top = ttk.Frame(root, padding=(PAD, PAD, PAD, 0))
         top.pack(fill='x')
@@ -239,10 +241,11 @@ class App:
         self.bar.pack(fill='x', pady=(4, 6))
         self.space_label = ttk.Label(f, wraplength=620, justify='left')
         self.space_label.pack(anchor='w')
-        self.warn_label = ttk.Label(f, wraplength=620, justify='left', foreground='#9a6700')
+        self.warn_label = ttk.Label(f, wraplength=620, justify='left', foreground=theme.WARN)
         self.warn_label.pack(anchor='w')
         self.log_frame = ttk.Frame(f)
         self.log = tk.Text(self.log_frame, height=10, wrap='word', state='disabled', font=('Consolas' if os.name == 'nt' else 'DejaVu Sans Mono', 9))
+        theme.text_widget(self.log)
         scroll = ttk.Scrollbar(self.log_frame, command=self.log.yview)
         self.log.configure(yscrollcommand=scroll.set)
         scroll.pack(side='right', fill='y')

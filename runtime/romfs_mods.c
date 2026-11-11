@@ -99,6 +99,14 @@ static int walk_entry(const char *name, int kind, uint64_t size, void *ctx) {
 
 static int by_key(const void *a, const void *b) { return strcmp(((const ModFile *)a)->key, ((const ModFile *)b)->key); }
 
+// The Lua mods' id rule: a-z first, then a-z 0-9 . _ -, at most 64 characters.
+static int valid_id(const char *id, size_t n) {
+    if (!n || n > 64 || !islower((unsigned char)id[0])) return 0;
+    for (size_t i = 0; i < n; i++)
+        if (!islower((unsigned char)id[i]) && !isdigit((unsigned char)id[i]) && !strchr("._-", id[i])) return 0;
+    return 1;
+}
+
 // Rebuilds the file map from the list file's text (NUL-terminated).
 static void rebuild(const char *list) {
     Walk w = {0};
@@ -111,10 +119,7 @@ static void rebuild(const char *list) {
         if (n && n < sizeof line && p[0] != '#') {
             memcpy(line, p, n);
             line[n] = 0;
-            int ok = islower((unsigned char)line[0]);   // the Lua mods' id rule: a-z first, then a-z 0-9 . _ -
-            for (size_t i = 0; ok && i < n; i++)
-                ok = islower((unsigned char)line[i]) || isdigit((unsigned char)line[i]) || strchr("._-", line[i]);
-            if (ok && n <= 64) {
+            if (valid_id(line, n)) {
                 int len = snprintf(w.host, sizeof w.host, "%s/%s/romfs", root, line);
                 if (len > 0 && (size_t)len < sizeof w.host && plat_fs_kind(w.host) == PLAT_FS_DIR) {
                     w.hlen = (size_t)len;
@@ -237,4 +242,59 @@ int romfs_mod_file(const char *path, char *out, size_t cap) {
     if (!__atomic_load_n(&nfiles, __ATOMIC_RELAXED) || !path) return 0;
     char key[1024];
     return make_key(path, key, sizeof key) && lookup(key, out, cap);
+}
+
+// ---- switching, for the F1 menu (runtime/mod_library.c) ------------------------------------------------------------------------------------------
+
+// The ids of romfs-enabled.txt, in order, into ids (each 65 bytes); the count.
+static int read_enabled(char (*ids)[65], int cap) {
+    char path[4200];
+    snprintf(path, sizeof path, "%s/romfs-enabled.txt", root);
+    uint64_t size = 0;
+    char *text = (char *)plat_file_read(path, &size);
+    int n = 0;
+    for (char *p = text; p && *p && n < cap;) {
+        char *e = strchr(p, '\n');
+        size_t len = e ? (size_t)(e - p) : strlen(p);
+        while (len && (p[len - 1] == '\r' || p[len - 1] == ' ')) len--;
+        if (p[0] != '#' && valid_id(p, len)) {
+            int dup = 0;
+            for (int i = 0; i < n; i++) dup |= strlen(ids[i]) == len && !memcmp(ids[i], p, len);
+            if (!dup) {
+                memcpy(ids[n], p, len);
+                ids[n++][len] = 0;
+            }
+        }
+        if (!e) break;
+        p = e + 1;
+    }
+    free(text);
+    return n;
+}
+
+const char *romfs_mods_dir(void) { return mods_root() ? root : NULL; }
+
+void romfs_mods_reload(void) {
+    plat_mutex_lock(&check_lock);
+    list_len_seen = -2;   // rebuilt from the list at the next check even when its bytes are the same
+    plat_mutex_unlock(&check_lock);
+    __atomic_store_n(&next_check_ms, 0, __ATOMIC_RELAXED);
+}
+
+int romfs_mods_set(const char *id, int on) {
+    if (!mods_root() || !id || !valid_id(id, strlen(id))) return 0;
+    char ids[MOD_CAP][65];
+    int n = read_enabled(ids, MOD_CAP);
+    char text[LIST_CAP];
+    size_t len = 0;
+    if (on) len += (size_t)snprintf(text, sizeof text, "%s\n", id);   // a mod turned on goes first, so its files win
+    for (int i = 0; i < n && len + 66 < sizeof text; i++)
+        if (strcmp(ids[i], id)) len += (size_t)snprintf(text + len, sizeof text - len, "%s\n", ids[i]);
+    plat_file_mkdir_p(root);
+    char path[4200];
+    snprintf(path, sizeof path, "%s/romfs-enabled.txt", root);
+    int ok = plat_file_write_atomic(path, text, len);
+    rt_log("romfs mods: %s turned %s from the menu%s", id, on ? "on" : "off", ok ? "" : " (the list could not be written)");
+    __atomic_store_n(&next_check_ms, 0, __ATOMIC_RELAXED);   // the next file lookup reads the new list
+    return ok;
 }
